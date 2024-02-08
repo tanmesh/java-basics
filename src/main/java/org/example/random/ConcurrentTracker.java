@@ -1,9 +1,8 @@
 package org.example.random;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ConcurrentTracker {
     private static Map<String, Set<Integer>> serversMap;
@@ -20,7 +19,7 @@ public class ConcurrentTracker {
         return num;
     }
 
-    public void allocate(String hostType) {
+    synchronized public void allocate(String hostType) {
         Set<Integer> servers = serversMap.get(hostType);
         if (servers == null) {
             servers = new HashSet<>();
@@ -32,7 +31,7 @@ public class ConcurrentTracker {
         serversMap.put(hostType, servers);
     }
 
-    public void deallocate(String hostName) {
+    synchronized public void deallocate(String hostName) {
         int i = 0;
         while (i < hostName.length() && 'a' <= hostName.charAt(i) && hostName.charAt(i) <= 'z') {
             ++i;
@@ -49,11 +48,25 @@ public class ConcurrentTracker {
     public static void main(String[] args) {
         ConcurrentTracker tracker = new ConcurrentTracker();
 
-        tracker.allocate("apibox");
-        tracker.allocate("apibox");
-        tracker.deallocate("apibox1");
-        tracker.allocate("apibox");
-        tracker.allocate("sitebox");
-        tracker.allocate("#$@%");
+        List<String[]> queries = new ArrayList<>();
+        queries.add(new String[]{"allocate", "apibox"});
+        queries.add(new String[]{"allocate", "apibox"});
+        queries.add(new String[]{"deallocate", "apibox3"});
+        queries.add(new String[]{"allocate", "apibox"});
+        queries.add(new String[]{"allocate", "apibox"});
+        queries.add(new String[]{"allocate", "apibox"});
+        queries.add(new String[]{"deallocate", "apibox1"});
+
+        int NUM_THREADS = queries.size();
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
+
+        for (int i = 0; i < NUM_THREADS; ++i) {
+            String[] query = queries.get(i);
+            if (Objects.equals(query[0], "allocate")) {
+                executor.execute(() -> tracker.allocate(query[1]));
+            } else {
+                executor.execute(() -> tracker.deallocate(query[1]));
+            }
+        }
     }
 }
